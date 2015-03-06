@@ -1,5 +1,6 @@
 package com.example.imrahn.httpdebug;
 
+import android.app.DownloadManager;
 import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
@@ -15,6 +16,13 @@ import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
 
 import org.apache.http.NameValuePair;
 
@@ -74,197 +82,48 @@ public class MainActivity extends ActionBarActivity {
         String url = editText.getText().toString();
 
         Spinner spinner = (Spinner) findViewById(R.id.spinner);
-        String requestMethod = (String)spinner.getSelectedItem();
-
-        SubmitRequest request = new SubmitRequest();
-        request.setUrl(url);
-        request.setRequestMethod(requestMethod);
+        int requestMethod = Request.Method.GET;
+        if (spinner.getSelectedItem().equals("POST")) {
+            requestMethod = Request.Method.POST;
+        }
 
         ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
         progressBar.setVisibility(View.VISIBLE);
-        beginSearch(request);
-
     }
 
-    public void beginSearch(SubmitRequest request) {
-        ConnectivityManager connMgr = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
-        if (networkInfo != null && networkInfo.isConnected()) {
+    private void performGet(String url) {
+        RequestQueue queue = VolleySingleton.getInstance(this).getRequestQueue();
 
-            new SubmitAsyncTask().execute(request);
-        } else {
-            // textView.setText("No network connection available.");
-            // TextView textView = (TextView)findViewById(R.id.textView1);
-            // textView.setText("No network connection available.");
-            Toast.makeText(getApplicationContext(),
-                    "No network connection available", Toast.LENGTH_SHORT)
-                    .show();
-        }
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.GET, url,
+            new Response.Listener<String>() {
+
+                @Override
+                public void onResponse(String response) {
+                    final EditText editText4 = (EditText) findViewById(R.id.editText4);
+                    editText4.setText(response);
+
+                    ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+                    progressBar.setVisibility(View.INVISIBLE);
+                }
+            },
+
+            new Response.ErrorListener() {
+
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    final EditText editText4 = (EditText) findViewById(R.id.editText4);
+                    editText4.setText("That didnt work!");
+
+                    ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+                    progressBar.setVisibility(View.INVISIBLE);
+                }
+            });
+
+        queue.add(stringRequest);
     }
 
-    private class SubmitAsyncTask extends AsyncTask<SubmitRequest, Void, SubmitResponse> {
+    private void performPost() {
 
-        protected void onPreExecute() {
-            super.onPreExecute();
-        }
-
-        @Override
-        protected SubmitResponse doInBackground(SubmitRequest... sr) {
-
-            // params comes from the execute() call: params[0] is the url.
-            SubmitResponse response = null;
-            try {
-                response = downloadUrl(sr[0]);
-            } catch (IOException e) {
-                Toast.makeText(getApplicationContext(),  "Unable to retrieve url.",
-                        Toast.LENGTH_SHORT).show();
-                response = new SubmitResponse();
-            } catch (Exception e) {
-                Toast.makeText(getApplicationContext(),
-                        "General exception occured: " + e.getMessage(),
-                        Toast.LENGTH_SHORT).show();
-                response = new SubmitResponse();
-            }
-            return response;
-        }
-
-        @Override
-        protected void onPostExecute(SubmitResponse result) {
-
-            final EditText editText4 = (EditText) findViewById(R.id.editText4);
-
-            try {
-                editText4.setText(result.getResponseBody());
-
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                Toast.makeText(getApplicationContext(), e.getMessage(),
-                        Toast.LENGTH_SHORT).show();
-            }
-
-            ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
-            progressBar.setVisibility(View.INVISIBLE);
-
-            TextView textView = (TextView) findViewById(R.id.textView);
-            textView.setText("Response: " + result.getResponseCode());
-
-
-        }
-
-        private SubmitResponse downloadUrl(SubmitRequest sr) throws IOException {
-            InputStream is = null;
-            // Only display the first 10000 characters of the retrieved
-            // web page content.
-            int len = 10000;
-            SubmitResponse response = new SubmitResponse();
-            URL url = null;
-            HttpURLConnection conn = null;
-            try {
-                url = new URL(sr.getUrl());
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setReadTimeout(10000 /* milliseconds */);
-                conn.setConnectTimeout(15000 /* milliseconds */);
-
-                String requestMethod = sr.getRequestMethod();
-                conn.setRequestMethod(requestMethod);
-
-                conn.setDoInput(true);
-                conn.setRequestProperty("Content-Type","text/plain");
-
-                if (requestMethod.equals("POST")) {
-                    EditText editText3 = (EditText)findViewById(R.id.editText3);
-
-                    conn.setDoOutput(true);
-                    //conn.setChunkedStreamingMode(0);
-
-                    //List<NameValuePair> params = new ArrayList<NameValuePair>();
-                    //params.add(new BasicNameValuePair("firstParam", editText3.getText().toString()));
-
-                    //OutputStream os = conn.getOutputStream();
-                    //BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(os, "UTF-8"));
-                    //String s = getQuery(params);
-                    //writer.write(s);
-                    //writer.flush();
-                    //writer.close();
-                    //os.close();
-
-                    OutputStream out = new BufferedOutputStream(conn.getOutputStream());
-                    writeIt(out, editText3.getText().toString());
-                    out.close();
-                }
-
-
-                conn.connect();
-                response.setResponseCode(conn.getResponseCode());
-                is = conn.getInputStream();
-
-                response.setResponseBody(readIt(is, len));
-
-
-            }
-            catch (IOException ex){
-                is = conn.getErrorStream();
-                response.setResponseBody(readIt(is, len));
-            }
-            finally {
-
-                if (is != null) {
-                    is.close();
-                }
-
-                conn.disconnect();
-            }
-
-            return response;
-        }
-
-        public String readIt(InputStream is, int len) throws IOException {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
-            //Reader reader = new InputStreamReader(stream, "UTF-8");
-            //char[] buffer = new char[len];
-            //reader.read(buffer);
-            //reader.read
-            //return new String(buffer);
-
-            //InputStream is = connection.getInputStream();
-
-            BufferedReader rd = new BufferedReader(new InputStreamReader(is));
-            String line;
-            StringBuilder response = new StringBuilder();
-            while((line = rd.readLine()) != null) {
-                response.append(line);
-                response.append('\r');
-            }
-            rd.close();
-            return response.toString();
-
-        }
-
-        public void writeIt(OutputStream stream, String s) throws IOException {
-            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stream, "UTF-8"));
-            writer.write(s);
-            writer.flush();
-            writer.close();
-        }
-
-        private String getQuery(List<NameValuePair> params) throws UnsupportedEncodingException
-        {
-            StringBuilder result = new StringBuilder();
-            boolean first = true;
-
-            for (NameValuePair pair : params)
-            {
-                if (first)
-                    first = false;
-                else
-                    result.append("&");
-
-                result.append(URLEncoder.encode(pair.getName(), "UTF-8"));
-                result.append("=");
-                result.append(URLEncoder.encode(pair.getValue(), "UTF-8"));
-            }
-
-            return result.toString();
-        }
     }
 }
