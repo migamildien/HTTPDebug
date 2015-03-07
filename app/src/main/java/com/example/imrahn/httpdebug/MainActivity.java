@@ -17,6 +17,7 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -38,7 +39,9 @@ import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -82,16 +85,21 @@ public class MainActivity extends ActionBarActivity {
         String url = editText.getText().toString();
 
         Spinner spinner = (Spinner) findViewById(R.id.spinner);
-        int requestMethod = Request.Method.GET;
-        if (spinner.getSelectedItem().equals("POST")) {
-            requestMethod = Request.Method.POST;
-        }
+        String requestMethod = spinner.getSelectedItem().toString();
 
-        ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        progressBar.setVisibility(View.VISIBLE);
+        if (requestMethod.equals("GET")) {
+            performGet(url);
+        }
+        else if (requestMethod.equals("POST")) {
+            performPost(url);
+        }
     }
 
     private void performGet(String url) {
+
+        ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        progressBar.setVisibility(View.VISIBLE);
+
         RequestQueue queue = VolleySingleton.getInstance(this).getRequestQueue();
 
         // Request a string response from the provided URL.
@@ -113,7 +121,7 @@ public class MainActivity extends ActionBarActivity {
                 @Override
                 public void onErrorResponse(VolleyError error) {
                     final EditText editText4 = (EditText) findViewById(R.id.editText4);
-                    editText4.setText("That didnt work!");
+                    editText4.setText("Error [Status Code " + Integer.toString(error.networkResponse.statusCode) + " ]");
 
                     ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
                     progressBar.setVisibility(View.INVISIBLE);
@@ -123,7 +131,60 @@ public class MainActivity extends ActionBarActivity {
         queue.add(stringRequest);
     }
 
-    private void performPost() {
+    private void performPost(String url) {
+
+        ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        progressBar.setVisibility(View.VISIBLE);
+
+        RequestQueue queue = VolleySingleton.getInstance(this).getRequestQueue();
+
+        // Request a string response from the provided URL.
+        StringRequest stringRequest = new StringRequest(Request.Method.POST, url,
+                new Response.Listener<String>() {
+
+                    @Override
+                    public void onResponse(String response) {
+                        final EditText editText4 = (EditText) findViewById(R.id.editText4);
+                        editText4.setText(response);
+
+                        ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+                        progressBar.setVisibility(View.INVISIBLE);
+                    }
+                },
+
+                new Response.ErrorListener() {
+
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+                        final EditText editText4 = (EditText) findViewById(R.id.editText4);
+                        editText4.setText("Error [Status Code " + Integer.toString(error.networkResponse.statusCode) + " ]");
+
+                        ProgressBar progressBar = (ProgressBar) findViewById(R.id.progressBar);
+                        progressBar.setVisibility(View.INVISIBLE);
+                    }
+                })
+            {
+
+            @Override
+            protected Map<String, String> getParams()
+            {
+                final EditText editText3 = (EditText) findViewById(R.id.editText3);
+
+                Map<String, String> params = new HashMap<String, String>();
+                params.put("XML", editText3.getText().toString());
+
+                return params;
+            }
+
+            @Override
+            public Map<String, String> getHeaders() throws AuthFailureError {
+                Map<String,String> params = new HashMap<String, String>();
+                params.put("Content-Type","application/x-www-form-urlencoded");
+                return params;
+            }
+        };
+
+        queue.add(stringRequest);
 
     }
 }
